@@ -1,3 +1,5 @@
 {
-  "item.smokemod.cigarette": "Cigarette"
+  "item.smokemod.cigarette": "Cigarette",
+  "subtitle.smokemod.cigarette": "Cigarette inhale",
+  "subtitle.smokemod.exhalation": "Exhalation"
 }
