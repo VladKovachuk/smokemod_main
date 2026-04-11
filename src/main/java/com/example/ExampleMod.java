@@ -1,7 +1,9 @@
 package com.example;
 
 import com.example.item.CigaretteItem;
+import com.example.nicotine.NicotineManager;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroups;
@@ -40,6 +42,12 @@ public class ExampleMod implements ModInitializer {
 		// Добавляем сигарету во вкладку "Материалы" (Ingredients) в креативе
 		ItemGroupEvents.modifyEntriesEvent(ItemGroups.INGREDIENTS).register(content -> {
 			content.add(CIGARETTE);
+		});
+
+		// Система никотина (лёгких)
+		NicotineManager.register();
+		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
+			NicotineManager.onPlayerJoin(handler.player);
 		});
 
 		LOGGER.info("Smoke Mod initialized");

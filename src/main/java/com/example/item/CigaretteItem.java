@@ -1,6 +1,7 @@
 package com.example.item;
 
 import com.example.ExampleMod;
+import com.example.nicotine.NicotineManager;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -24,11 +25,22 @@ import net.minecraft.world.World;
  */
 public class CigaretteItem extends Item implements Equipment {
 
-	/** Кулдаун после использования: 4 секунды = 80 тиков */
-	private static final int COOLDOWN_TICKS = 80;
+	/** Кулдаун после использования: 1 секунды = 20 тиков */
+	private static final int COOLDOWN_TICKS = 20;
 
 	public CigaretteItem(Settings settings) {
 		super(settings);
+	}
+
+	/**
+	 * Возвращает количество никотина, которое добавляется при затяжке этой
+	 * сигареты.
+	 * Переопредели этот метод в подклассах для разных типов сигарет.
+	 * 
+	 * @return Количество никотина (по умолчанию 20%)
+	 */
+	protected int getNicotineAmount() {
+		return NicotineManager.ADD_PER_PUFF; // 20% по умолчанию
 	}
 
 	/**
@@ -51,13 +63,14 @@ public class CigaretteItem extends Item implements Equipment {
 		if (user.getItemCooldownManager().isCoolingDown(this)) {
 			return TypedActionResult.pass(itemStack);
 		}
-		
-		// Проигрываем звук затяжки при начале использования (на сервере для синхронизации)
+
+		// Проигрываем звук затяжки при начале использования (на сервере для
+		// синхронизации)
 		if (!world.isClient) {
-			world.playSound(null, user.getBlockPos(), 
-				ExampleMod.SOUND_CIGARETTE, SoundCategory.PLAYERS, 1.0f, 1.0f);
+			world.playSound(null, user.getBlockPos(),
+					ExampleMod.SOUND_CIGARETTE, SoundCategory.PLAYERS, 1.0f, 1.0f);
 		}
-		
+
 		// Начинаем использование предмета (анимация натягивания)
 		user.setCurrentHand(hand);
 		return TypedActionResult.consume(itemStack);
@@ -70,7 +83,7 @@ public class CigaretteItem extends Item implements Equipment {
 	 */
 	@Override
 	public int getMaxUseTime(ItemStack stack) {
-		return 50; // 2.5 секунды 
+		return 50; // 2.5 секунды
 	}
 
 	/**
@@ -98,14 +111,38 @@ public class CigaretteItem extends Item implements Equipment {
 			}
 
 			// Звук выдоха после использования сигареты
-			if (!world.isClient) {
-				world.playSound(null, user.getBlockPos(),
-					ExampleMod.SOUND_EXHALATION, SoundCategory.PLAYERS, 1.0f, 1.0f);
+			if (world instanceof ServerWorld serverWorld) {
+				Vec3d look = user.getRotationVec(1.0F).normalize();
+
+				// Точка спавна: перед ртом, по направлению взгляда
+				double baseX = user.getX() + look.x * 0.5;
+				double baseY = user.getEyeY() - 0.05;
+				double baseZ = user.getZ() + look.z * 0.5;
+
+				for (int i = 0; i < 1; i++) {
+					// Смещение вдоль взгляда — имитирует растянутую струю
+					double offset = i * 0.055;
+					double x = baseX + look.x * offset;
+					double y = baseY + look.y * offset;
+					double z = baseZ + look.z * offset;
+
+					double forwardSpeed = 0.035 + i * 0.002;
+					double spread = 0.007;
+
+					double vX = look.x * forwardSpeed + (serverWorld.random.nextDouble() - 0.5) * spread;
+					// +0.025 компенсирует гравитацию CLOUD (0.02/тик) + чуть поднимает дым вверх
+					double vY = look.y * forwardSpeed + 0.3488 + (serverWorld.random.nextDouble() - 0.5) * spread;
+					double vZ = look.z * forwardSpeed + (serverWorld.random.nextDouble() - 0.5) * spread;
+
+					// count=0 → 1 частица с точной скоростью vX,vY,vZ
+					// speed=1.0 → без масштабирования вектора
+					serverWorld.spawnParticles(ParticleTypes.CLOUD, x, y, z, 0, vX, vY, vZ, 1.0);
+				}
 			}
 
-			// Частицы дыма "изо рта" — только на сервере, видны всем игрокам
-			if (!world.isClient && world instanceof ServerWorld serverWorld) {
-				spawnExhalationSmoke(serverWorld, player);
+			// Пополнение индикатора лёгких при выдохе (значение зависит от типа сигареты)
+			if (!world.isClient && player instanceof ServerPlayerEntity serverPlayer) {
+				NicotineManager.addPuff(serverPlayer, getNicotineAmount());
 			}
 
 			// Ставим кулдаун 4 секунды после использования
@@ -119,7 +156,7 @@ public class CigaretteItem extends Item implements Equipment {
 				});
 			}
 		}
-		
+
 		return stack;
 	}
 
@@ -129,52 +166,15 @@ public class CigaretteItem extends Item implements Equipment {
 	 */
 	@Override
 	public void onStoppedUsing(ItemStack stack, World world, LivingEntity user, int remainingUseTicks) {
-		if (world.isClient) return;
-		if (remainingUseTicks >= getMaxUseTime(stack)) return; // Полное использование — не сюда
+		if (world.isClient)
+			return;
+		if (remainingUseTicks >= getMaxUseTime(stack))
+			return; // Полное использование — не сюда
 		// Останавливаем звук затяжки у игрока
 		if (user instanceof ServerPlayerEntity serverPlayer) {
 			serverPlayer.networkHandler.sendPacket(new StopSoundS2CPacket(
-				ExampleMod.SOUND_CIGARETTE_ID, SoundCategory.PLAYERS));
+					ExampleMod.SOUND_CIGARETTE_ID, SoundCategory.PLAYERS));
 		}
 	}
 
-	/**
-	 * Спавнит струю дыма "изо рта" игрока.
-	 * Частицы летят вперёд по направлению взгляда с небольшим подъёмом.
-	 * Вызывается только на сервере — дым видят все игроки.
-	 */
-	private void spawnExhalationSmoke(ServerWorld world, PlayerEntity user) {
-		Vec3d look = user.getRotationVec(1.0F);
-	
-		// Считаем только направление по горизонтали
-		double horizontalMag = Math.sqrt(look.x * look.x + look.z * look.z);
-		// Если игрок смотрит в пол, берем минимальное значение, чтобы не было ошибки
-		double dirX = horizontalMag < 0.1 ? 0 : look.x / horizontalMag;
-		double dirZ = horizontalMag < 0.1 ? 0 : look.z / horizontalMag;
-	
-		// УВЕЛИЧИВАЕМ СКОРОСТЬ
-		double speedForward = 0.25; // Сильнее дуем вперед 0.25
-		double speedUp = 0.15;      // Сильнее толкаем вверх, чтобы не падало вниз 0.15
-	
-		// ПОЗИЦИЯ: Поднимаем точку спавна выше (на уровень носа/глаз)
-		// Чтобы даже если частица чуть упадет, она не оказалась в груди
-		double x = user.getX() + dirX * 0.4;
-		double y = user.getEyeY() - 0.05; // Почти на уровне глаз
-		double z = user.getZ() + dirZ * 0.4;
-	
-		for (int i = 0; i < 15; i++) {  // 15 -> 30 количество
-			double vX = dirX * speedForward + (world.random.nextDouble() - 0.5) * 0.1;
-			double vZ = dirZ * speedForward + (world.random.nextDouble() - 0.5) * 0.1;
-			
-			// vY теперь всегда ощутимо положительный
-			double vY = speedUp + world.random.nextDouble() * 0.15;
-	
-			world.spawnParticles(ParticleTypes.CLOUD, 
-				x, y, z, 
-				0,          
-				vX, vY, vZ, 
-				1.0         // Увеличили общий множитель силы
-			);
-		}
-	}
 }
