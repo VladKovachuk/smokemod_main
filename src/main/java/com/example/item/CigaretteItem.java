@@ -9,13 +9,11 @@ import net.minecraft.item.Equipment;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.s2c.play.StopSoundS2CPacket;
-import net.minecraft.particle.ParticleTypes;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.util.Hand;
 import net.minecraft.util.TypedActionResult;
-import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
 /**
@@ -111,32 +109,15 @@ public class CigaretteItem extends Item implements Equipment {
 			}
 
 			// Звук выдоха после использования сигареты
+			if (!world.isClient) {
+				world.playSound(null, user.getBlockPos(),
+						ExampleMod.SOUND_EXHALATION, SoundCategory.PLAYERS, 1.0f, 1.0f);
+			}
+
 			if (world instanceof ServerWorld serverWorld) {
-				Vec3d look = user.getRotationVec(1.0F).normalize();
-
-				// Точка спавна: перед ртом, по направлению взгляда
-				double baseX = user.getX() + look.x * 0.5;
-				double baseY = user.getEyeY() - 0.05;
-				double baseZ = user.getZ() + look.z * 0.5;
-
-				for (int i = 0; i < 1; i++) {
-					// Смещение вдоль взгляда — имитирует растянутую струю
-					double offset = i * 0.055;
-					double x = baseX + look.x * offset;
-					double y = baseY + look.y * offset;
-					double z = baseZ + look.z * offset;
-
-					double forwardSpeed = 0.035 + i * 0.002;
-					double spread = 0.007;
-
-					double vX = look.x * forwardSpeed + (serverWorld.random.nextDouble() - 0.5) * spread;
-					// +0.025 компенсирует гравитацию CLOUD (0.02/тик) + чуть поднимает дым вверх
-					double vY = look.y * forwardSpeed + 0.3488 + (serverWorld.random.nextDouble() - 0.5) * spread;
-					double vZ = look.z * forwardSpeed + (serverWorld.random.nextDouble() - 0.5) * spread;
-
-					// count=0 → 1 частица с точной скоростью vX,vY,vZ
-					// speed=1.0 → без масштабирования вектора
-					serverWorld.spawnParticles(ParticleTypes.CLOUD, x, y, z, 0, vX, vY, vZ, 1.0);
+				// Вместо мгновенного спавна запускаем 3-секундный выдох
+				if (user instanceof ServerPlayerEntity serverPlayer) {
+					ExhalationManager.startExhalation(serverPlayer);
 				}
 			}
 

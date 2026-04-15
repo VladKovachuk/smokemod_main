@@ -11,6 +11,8 @@ import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.util.Identifier;
+import net.fabricmc.fabric.api.particle.v1.FabricParticleTypes;
+import net.minecraft.particle.DefaultParticleType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,11 +32,17 @@ public class ExampleMod implements ModInitializer {
 	// maxDamage(100) = максимальная прочность 100 (5 использований по 20% каждое)
 	public static final Item CIGARETTE = new CigaretteItem(new Item.Settings().maxDamage(100));
 
+	// Кастомная частица дыма для сигареты
+	public static final DefaultParticleType CIGARETTE_CLOUD = FabricParticleTypes.simple();
+
 	@Override
 	public void onInitialize() {
 		// Регистрация звуков в реестре
 		Registry.register(Registries.SOUND_EVENT, SOUND_CIGARETTE_ID, SOUND_CIGARETTE);
 		Registry.register(Registries.SOUND_EVENT, SOUND_EXHALATION_ID, SOUND_EXHALATION);
+
+		// Регистрация кастомной частицы
+		Registry.register(Registries.PARTICLE_TYPE, Identifier.of(MOD_ID, "cigarette_cloud"), CIGARETTE_CLOUD);
 
 		// Регистрация предмета в реестре игры (Identifier = "имя_мода:имя_предмета")
 		Registry.register(Registries.ITEM, Identifier.of(MOD_ID, "cigarette"), CIGARETTE);
@@ -49,6 +57,9 @@ public class ExampleMod implements ModInitializer {
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			NicotineManager.onPlayerJoin(handler.player);
 		});
+
+		// Регистрация системы продолжительного выдоха
+		com.example.item.ExhalationManager.register();
 
 		LOGGER.info("Smoke Mod initialized");
 	}
