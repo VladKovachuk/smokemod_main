@@ -11,12 +11,13 @@ import net.minecraft.particle.DefaultParticleType;
 public class CigaretteCloudParticle extends SpriteBillboardParticle {
 
 	private final SpriteProvider spriteProvider;
+	private final float baseScale;
 
 	protected CigaretteCloudParticle(ClientWorld world, double x, double y, double z, double velocityX,
 			double velocityY, double velocityZ, SpriteProvider spriteProvider) {
 		super(world, x, y, z, velocityX, velocityY, velocityZ);
 		this.spriteProvider = spriteProvider;
-		this.velocityMultiplier = 0.96F;
+		this.velocityMultiplier = 0.96F; // сопротивление воздуха
 
 		// БАЗОВЫЙ класс Particle в майнкрафте по умолчанию добавляет +0.1 к Y (подлет
 		// вверх)
@@ -29,17 +30,17 @@ public class CigaretteCloudParticle extends SpriteBillboardParticle {
 		// Отключаем гравитацию на всякий случай
 		this.gravityStrength = 0.0F;
 
-		// Наш фиксированный большой размер
-		this.scale = 0.20F;
+		// Стартовый размер частицы очень маленький (для струйки дыма изо рта)
+		this.baseScale = 0.09F; // или 0.1
+		this.scale = this.baseScale;
 
-		// Легкая вариация цвета (от темно-серого до белого), как у облака
-		float color = (this.random.nextFloat() * 0.3F) + 0.7F;
-		this.red = color;
-		this.green = color;
-		this.blue = color;
+		// Чисто белый цвет дыма
+		this.red = 1.0F;
+		this.green = 1.0F;
+		this.blue = 1.0F;
 
 		// Время жизни
-		this.maxAge = (int) (8.0D / (this.random.nextDouble() * 0.8D + 0.2D)) + 4;
+		this.maxAge = (int) (8.0D / (this.random.nextDouble() * 0.8D + 0.2D)) + 140; // 80
 		this.setSpriteForAge(spriteProvider);
 	}
 
@@ -51,6 +52,15 @@ public class CigaretteCloudParticle extends SpriteBillboardParticle {
 	@Override
 	public void tick() {
 		super.tick();
+
+		// Плавно увеличиваем размер частицы со временем, чтобы она "клубилась" и
+		// рассеивалась
+		float lifeRatio = (float) this.age / (float) this.maxAge;
+		this.scale = this.baseScale + (0.50F * lifeRatio); // 0.35F
+
+		// Плавно делаем частицу прозрачной под конец
+		this.alpha = 1.0F - (lifeRatio * lifeRatio);
+
 		if (!this.dead) {
 			this.setSpriteForAge(this.spriteProvider);
 		}

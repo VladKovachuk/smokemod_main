@@ -30,7 +30,7 @@ public class ExhalationManager {
      */
     public static void startExhalation(ServerPlayerEntity player) {
         // 60 тиков = 3 секунды
-        ACTIVE_TASKS.add(new ExhalationTask(player, 60));
+        ACTIVE_TASKS.add(new ExhalationTask(player, 20));
     }
 
     public static void register() {
@@ -50,27 +50,28 @@ public class ExhalationManager {
                     Vec3d look = task.player.getRotationVec(1.0F).normalize();
 
                     // Разлёт скорости — делаем поток шире и рассеяннее
-                    double velSpread = 0.045; 
-                    
-                    // Разлёт позиции — чтобы дым спавнился не из одной точки, а немного объёмно
-                    double posSpread = 0.15;
-                    double offsetX = (serverWorld.random.nextDouble() - 0.5) * posSpread;
-                    double offsetY = (serverWorld.random.nextDouble() - 0.5) * posSpread;
-                    double offsetZ = (serverWorld.random.nextDouble() - 0.5) * posSpread;
+                    double velSpread = 0.045;
 
-                    // Точка спавна: чуть впереди лица игрока + случайное смещение
-                    double baseX = task.player.getX() + look.x * 0.5 + offsetX;
-                    double baseY = task.player.getEyeY() - 0.1 + offsetY;
-                    double baseZ = task.player.getZ() + look.z * 0.5 + offsetZ;
+                    // Разлёт позиции — почти убираем (0.02), чтобы струя вылетала тонкой из рта
+                    double posSpread = 0.02;
+                    // Спавним 2 частицы за один тик (в два раза больше дыма)
+                    for (int i = 0; i < 1; i++) {
+                        // Важно пересчитывать разлёт и смещение для КАЖДОЙ частицы в цикле,
+                        // чтобы они не летели идеально в одной точке друг в друге.
+                        double curOffsetX = (serverWorld.random.nextDouble() - 0.5) * posSpread;
+                        double curOffsetY = (serverWorld.random.nextDouble() - 0.5) * posSpread;
+                        double curOffsetZ = (serverWorld.random.nextDouble() - 0.5) * posSpread;
+                        double pX = task.player.getX() + look.x * 0.2 + curOffsetX;
+                        double pY = task.player.getEyeY() - 0.25 + curOffsetY;
+                        double pZ = task.player.getZ() + look.z * 0.2 + curOffsetZ;
 
-                    // Скорость частицы — по направлению взгляда, но с рассеянием
-                    double forwardSpeed = 0.04;
-                    double vX = look.x * forwardSpeed + (serverWorld.random.nextDouble() - 0.5) * velSpread;
-                    double vY = look.y * forwardSpeed + (serverWorld.random.nextDouble() - 0.5) * velSpread;
-                    double vZ = look.z * forwardSpeed + (serverWorld.random.nextDouble() - 0.5) * velSpread;
+                        double forwardSpeed = 0.11;
+                        double pVx = look.x * forwardSpeed + (serverWorld.random.nextDouble() - 0.5) * velSpread;
+                        double pVy = look.y * forwardSpeed + (serverWorld.random.nextDouble() - 0.5) * velSpread;
+                        double pVz = look.z * forwardSpeed + (serverWorld.random.nextDouble() - 0.5) * velSpread;
 
-                    // count=0 → 1 частица с точным вектором скорости
-                    serverWorld.spawnParticles(ExampleMod.CIGARETTE_CLOUD, baseX, baseY, baseZ, 0, vX, vY, vZ, 1.0);
+                        serverWorld.spawnParticles(ExampleMod.CIGARETTE_CLOUD, pX, pY, pZ, 0, pVx, pVy, pVz, 1.0);
+                    }
                 }
 
                 task.ticksRemaining--;

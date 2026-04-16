@@ -10,7 +10,6 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.packet.s2c.play.StopSoundS2CPacket;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.util.Hand;
 import net.minecraft.util.TypedActionResult;
@@ -114,7 +113,7 @@ public class CigaretteItem extends Item implements Equipment {
 						ExampleMod.SOUND_EXHALATION, SoundCategory.PLAYERS, 1.0f, 1.0f);
 			}
 
-			if (world instanceof ServerWorld serverWorld) {
+			if (!world.isClient) {
 				// Вместо мгновенного спавна запускаем 3-секундный выдох
 				if (user instanceof ServerPlayerEntity serverPlayer) {
 					ExhalationManager.startExhalation(serverPlayer);
