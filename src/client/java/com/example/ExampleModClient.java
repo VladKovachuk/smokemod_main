@@ -37,6 +37,17 @@ public class ExampleModClient implements ClientModInitializer {
 					return 0.0f;
 				});
 
+		// Предикат модели для джоинта (зажжён/не зажжён — меняет текстуру)
+		ModelPredicateProviderRegistry.register(
+				ExampleMod.JOINT,
+				Identifier.of(ExampleMod.MOD_ID, "lit"),
+				(stack, world, entity, seed) -> {
+					if (stack.getNbt() != null && stack.getNbt().getBoolean("lit")) {
+						return 1.0f;
+					}
+					return 0.0f;
+				});
+
 		// Приём пакета с сервера: обновляем clientNicotineLevel
 		ClientPlayNetworking.registerGlobalReceiver(NicotineManager.NICOTINE_SYNC_ID,
 				(client, handler, buf, responseSender) -> {

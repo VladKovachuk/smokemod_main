@@ -1,12 +1,15 @@
 package com.example;
 
 import com.example.item.CigaretteItem;
+import com.example.item.JointItem;
 import com.example.nicotine.NicotineManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
-import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
+import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
 import net.minecraft.item.Item;
-import net.minecraft.item.ItemGroups;
+import net.minecraft.item.ItemGroup;
+import net.minecraft.item.ItemStack;
+import net.minecraft.text.Text;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.sound.SoundEvent;
@@ -32,8 +35,30 @@ public class ExampleMod implements ModInitializer {
 	// maxDamage(100) = максимальная прочность 100 (5 использований по 20% каждое)
 	public static final Item CIGARETTE = new CigaretteItem(new Item.Settings().maxDamage(100));
 
+	// Предмет джоинта (аналог сигареты, своя модель и текстура)
+	public static final Item JOINT = new JointItem(new Item.Settings().maxDamage(100));
+
 	// Кастомная частица дыма для сигареты
 	public static final DefaultParticleType CIGARETTE_CLOUD = FabricParticleTypes.simple();
+
+	// Кастомная вкладка в креативе
+	public static final ItemGroup SMOKEMOD_GROUP = FabricItemGroup.builder()
+			.icon(() -> new ItemStack(CIGARETTE))
+			.displayName(Text.translatable("itemGroup.smokemod.main"))
+			.entries((context, entries) -> {
+				entries.add(CIGARETTE);
+				
+				ItemStack litCigarette = new ItemStack(CIGARETTE);
+				litCigarette.getOrCreateNbt().putBoolean("lit", true);
+				entries.add(litCigarette);
+
+				entries.add(JOINT);
+
+				ItemStack litJoint = new ItemStack(JOINT);
+				litJoint.getOrCreateNbt().putBoolean("lit", true);
+				entries.add(litJoint);
+			})
+			.build();
 
 	@Override
 	public void onInitialize() {
@@ -44,13 +69,11 @@ public class ExampleMod implements ModInitializer {
 		// Регистрация кастомной частицы
 		Registry.register(Registries.PARTICLE_TYPE, Identifier.of(MOD_ID, "cigarette_cloud"), CIGARETTE_CLOUD);
 
-		// Регистрация предмета в реестре игры (Identifier = "имя_мода:имя_предмета")
 		Registry.register(Registries.ITEM, Identifier.of(MOD_ID, "cigarette"), CIGARETTE);
+		Registry.register(Registries.ITEM, Identifier.of(MOD_ID, "joint"), JOINT);
 
-		// Добавляем сигарету во вкладку "Материалы" (Ingredients) в креативе
-		ItemGroupEvents.modifyEntriesEvent(ItemGroups.INGREDIENTS).register(content -> {
-			content.add(CIGARETTE);
-		});
+		// Регистрируем вкладку в креативе
+		Registry.register(Registries.ITEM_GROUP, Identifier.of(MOD_ID, "main"), SMOKEMOD_GROUP);
 
 		// Система никотина (лёгких)
 		NicotineManager.register();

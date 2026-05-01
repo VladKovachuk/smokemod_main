@@ -1,5 +1,7 @@
 {
+  "itemGroup.smokemod.main": "Smoke Mod",
   "item.smokemod.cigarette": "Cigarette",
+  "item.smokemod.joint": "Joint",
   "subtitle.smokemod.cigarette": "Cigarette inhale",
   "subtitle.smokemod.exhalation": "Exhalation"
 }
