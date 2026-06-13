@@ -1,13 +1,18 @@
 package com.example;
 
+import com.example.effects.EffectManager;
 import com.example.nicotine.NicotineManager;
 import com.example.particle.CigaretteCloudParticle;
+import com.example.shader.ShaderManager;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.item.ModelPredicateProviderRegistry;
+import net.minecraft.resource.ResourceType;
 import net.minecraft.util.Identifier;
 
 public class ExampleModClient implements ClientModInitializer {
@@ -20,8 +25,20 @@ public class ExampleModClient implements ClientModInitializer {
 	private static final Identifier LUNGS_FULL_TEXTURE = Identifier.of(ExampleMod.MOD_ID,
 			"textures/gui/lungs_full.png");
 
+	/** Менеджер шейдеров для пост-эффектов */
+	private static ShaderManager shaderManager;
+
+	/** Доступ к менеджеру шейдеров из миксина (рендер на финальном кадре) */
+	public static ShaderManager getShaderManager() {
+		return shaderManager;
+	}
+
 	@Override
 	public void onInitializeClient() {
+		// Инициализируем менеджер шейдеров
+		shaderManager = new ShaderManager();
+		ResourceManagerHelper.get(ResourceType.CLIENT_RESOURCES).registerReloadListener(shaderManager);
+
 		// Привязываем кастомную частицу к нашей фабрике
 		ParticleFactoryRegistry.getInstance().register(ExampleMod.CIGARETTE_CLOUD, CigaretteCloudParticle.Factory::new);
 
@@ -53,6 +70,44 @@ public class ExampleModClient implements ClientModInitializer {
 				(client, handler, buf, responseSender) -> {
 					int level = buf.readInt();
 					client.execute(() -> clientNicotineLevel = level);
+				});
+
+		// Приём пакета с сервера: обновляем уровни эффектов с параметрами
+		ClientPlayNetworking.registerGlobalReceiver(EffectManager.EFFECT_SYNC_ID,
+				(client, handler, buf, responseSender) -> {
+					int effectCount = buf.readInt();
+					// Используем структуру для хранения всех параметров эффекта
+					class EffectData {
+						float value, fadeIn, fadeOut;
+						EffectData(float v, float fi, float fo) { value = v; fadeIn = fi; fadeOut = fo; }
+					}
+					java.util.Map<String, EffectData> receivedEffects = new java.util.HashMap<>();
+					for (int i = 0; i < effectCount; i++) {
+						receivedEffects.put(buf.readString(), new EffectData(buf.readFloat(), buf.readFloat(), buf.readFloat()));
+					}
+
+					client.execute(() -> {
+						for (java.util.Map.Entry<String, EffectData> entry : receivedEffects.entrySet()) {
+							String effectTypeName = entry.getKey();
+							EffectData data = entry.getValue();
+							try {
+								EffectManager.EffectType type = EffectManager.EffectType.valueOf(effectTypeName);
+								switch (type) {
+									case DESATURATION:
+										shaderManager.setDesaturationParams(data.value, data.fadeIn, data.fadeOut);
+										break;
+									case BLUR:
+										shaderManager.setBlur(data.value);
+										break;
+									case DISTORTION:
+										shaderManager.setDistortion(data.value);
+										break;
+								}
+							} catch (IllegalArgumentException e) {
+								ExampleMod.LOGGER.warn("Unknown effect type: {}", effectTypeName);
+							}
+						}
+					});
 				});
 
 		// HUD: индикатор лёгких, ниже прицела
@@ -102,5 +157,18 @@ public class ExampleModClient implements ClientModInitializer {
 			context.drawText(mc.textRenderer, percentText, textX, textY, 0xFFFFFF, true);
 
 		});
+
+		// Приём пакета мгновенного сброса (смерть игрока и т.п.) — без плавного затухания
+		ClientPlayNetworking.registerGlobalReceiver(EffectManager.EFFECT_CLEAR_ID,
+				(client, handler, buf, responseSender) -> {
+					client.execute(() -> {
+						if (shaderManager != null) {
+							shaderManager.setInstantReset(true);
+						}
+					});
+				});
+
+		// ВАЖНО: рендеринг пост-эффекта и обновление uniform перенесено в GameRendererMixin (TAIL метода render).
+		// Раньше здесь был END_CLIENT_TICK, но это вызывало слишком быстрое обновление при высоком FPS.
 	}
 }

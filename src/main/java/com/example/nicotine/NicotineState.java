@@ -60,7 +60,7 @@ public class NicotineState extends PersistentState {
     }
 
     public void setLevel(UUID uuid, int level) {
-        com.example.ExampleMod.LOGGER.info("NicotineState: Setting level for {} to {} (was {})", uuid, level, levels.get(uuid));
+        // com.example.ExampleMod.LOGGER.info("NicotineState: Setting level for {} to {} (was {})", uuid, level, levels.get(uuid));
         levels.put(uuid, level);
         markDirty(); // Сообщаем Minecraft, что данные изменились и нужно сохранить
     }

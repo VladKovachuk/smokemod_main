@@ -30,7 +30,7 @@ public class ExhalationManager {
      */
     public static void startExhalation(ServerPlayerEntity player) {
         // 60 тиков = 3 секунды
-        ACTIVE_TASKS.add(new ExhalationTask(player, 20));
+        ACTIVE_TASKS.add(new ExhalationTask(player, 15));
     }
 
     public static void register() {

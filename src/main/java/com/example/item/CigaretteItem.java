@@ -1,6 +1,7 @@
 package com.example.item;
 
 import com.example.ExampleMod;
+import com.example.effects.EffectManager;
 import com.example.nicotine.NicotineManager;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
@@ -25,7 +26,15 @@ public class CigaretteItem extends Item implements Equipment {
 	/** Кулдаун после использования: 1 секунды = 20 тиков */
 	private static final int COOLDOWN_TICKS = 20;
 
+	// --- ПАРАМЕТРЫ ЭФФЕКТА СЕРОСТИ ДЛЯ ЭТОГО ПРЕДМЕТА ---
+	protected float getDesatPuffAmount() { return 0.22f; }  // Сколько добавляет одна затяжка
+	protected float getDesatMax() { return 0.9f; }         // Максимальный уровень серости
+	protected float getDesatFadeIn() { return 0.2f; }      // Скорость появления (ед/сек)
+	protected float getDesatFadeOut() { return 0.02f; }    // Скорость затухания (ед/сек)
+	// ----------------------------------------------------
+
 	public CigaretteItem(Settings settings) {
+
 		super(settings);
 	}
 
@@ -123,6 +132,17 @@ public class CigaretteItem extends Item implements Equipment {
 			// Пополнение индикатора лёгких при выдохе (значение зависит от типа сигареты)
 			if (!world.isClient && player instanceof ServerPlayerEntity serverPlayer) {
 				NicotineManager.addPuff(serverPlayer, getNicotineAmount());
+
+				// Добавляем эффект серости при использовании сигареты
+				// Параметры (сила, максимум, скорость появления, скорость затухания) берутся из методов выше
+				EffectManager.addEffect(
+						serverPlayer,
+						EffectManager.EffectType.DESATURATION,
+						getDesatPuffAmount(),
+						getDesatMax(),
+						getDesatFadeIn(),
+						getDesatFadeOut()
+				);
 			}
 
 			// Ставим кулдаун 4 секунды после использования

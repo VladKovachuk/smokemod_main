@@ -1,14 +1,18 @@
 package com.example;
 
+import com.example.effects.EffectManager;
 import com.example.item.CigaretteItem;
 import com.example.item.JointItem;
 import com.example.nicotine.NicotineManager;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.entity.event.v1.ServerEntityCombatEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
@@ -79,6 +83,16 @@ public class ExampleMod implements ModInitializer {
 		NicotineManager.register();
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			NicotineManager.onPlayerJoin(handler.player);
+		});
+
+		// Система эффектов
+		EffectManager.register();
+
+		// При смерти игрока — мгновенно сбрасываем все визуальные эффекты
+		ServerEntityCombatEvents.AFTER_KILLED_OTHER_ENTITY.register((world, entity, killedEntity) -> {
+			if (killedEntity instanceof ServerPlayerEntity deadPlayer) {
+				EffectManager.clearEffects(deadPlayer);
+			}
 		});
 
 		// Регистрация системы продолжительного выдоха
